@@ -24,7 +24,7 @@ const PromptFormats = (() => {
     'expressionless': 'a neutral expression', 'crying': 'crying', 'wink': 'winking',
     'abs': 'defined abdominal muscles', 'tareme': 'downturned eyes', 'tsurime': 'upturned eyes',
     'aegyo_sal': 'soft lower-eyelid fullness', 'upper_body': 'an upper-body view',
-    'full_body': 'a full-body view', 'close-up': 'a close-up view', 'looking_at_viewer': 'looking at the viewer',
+    'full_body': 'a full-body view', 'close-up': 'a close-up view', 'close_up': 'a close-up view', 'looking_at_viewer': 'looking at the viewer',
     'from_above': 'a view from above', 'from_below': 'a view from below',
     'outdoors': 'an outdoor setting', 'indoors': 'an indoor setting',
     'sketch': 'a sketch', 'lineart': 'line art', 'masterpiece': 'masterpiece quality',
@@ -33,7 +33,7 @@ const PromptFormats = (() => {
     : `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
   const sentence = text => text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}.` : '';
 
-  function natural(groups, tailTags) {
+  function natural(groups, tailTags, sourceText = '') {
     const emphasized = [];
     const softened = [];
     const describe = tag => {
@@ -61,14 +61,17 @@ const PromptFormats = (() => {
     if (tailTags.length) sentences.push(sentence(`Include ${join(tailTags.map(describe))}`));
     if (emphasized.length) sentences.push(sentence(`Place extra emphasis on ${join(emphasized)}`));
     if (softened.length) sentences.push(sentence(`Keep ${join(softened)} subtle`));
-    return sentences.join(' ');
+    const generated = sentences.join(' ');
+    return [sourceText ? `Original description:\n${sourceText}` : '', generated].filter(Boolean).join('\n\n');
   }
 
-  function render(groups, tailTags, count) {
-    document.querySelector('#promptVariants').classList.toggle('hidden', count === 0);
-    document.querySelector('#novelPrompt').textContent = count ? novel(groups, tailTags) : '';
-    document.querySelector('#naturalPrompt').textContent = count ? natural(groups, tailTags) : '';
-    document.querySelectorAll('[data-copy-output]').forEach(button => { button.disabled = count === 0; });
+  function render(groups, tailTags, count, sourceText = '') {
+    document.querySelector('#promptVariants').classList.toggle('hidden', count === 0 && !sourceText);
+    document.querySelector('#novelPrompt').textContent = count ? novel(groups, tailTags) : '인식한 태그가 없습니다. 태그 검색에서 추가해 주세요.';
+    document.querySelector('#naturalPrompt').textContent = natural(groups, tailTags, sourceText);
+    document.querySelectorAll('[data-copy-output]').forEach(button => {
+      button.disabled = button.dataset.copyOutput === 'naturalPrompt' ? count === 0 && !sourceText : count === 0;
+    });
   }
 
   document.querySelectorAll('[data-copy-output]').forEach(button => {
