@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>단부루 태그 생성</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">D</div>
+      <div class="brand-copy">
+        <h1>단부루 태그 생성</h1>
+        <p>이미지와 설명을 Stable Diffusion용 Danbooru 태그로 정리합니다.</p>
+      </div>
+      <div class="header-status">
+        <button class="model-pill" id="modelStatusButton" type="button" aria-label="로컬 모델 상태 보기">
+          <span class="status-dot" id="modelStatusDot"></span>
+          <span id="modelStatusText">로컬 서버 확인 중</span>
+        </button>
+        <div class="privacy-pill"><span></span>로컬 처리 · 데이터 전송 없음</div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="column left-column" aria-label="입력 및 태그 검색">
+        <article class="card source-card">
+          <header class="card-head">
+            <span class="eyebrow">Source</span>
+            <div class="tabs" role="tablist" aria-label="입력 방식">
+              <button class="tab active" id="imageTab" type="button" role="tab" aria-selected="true" data-mode="image">Image</button>
+              <button class="tab" id="textTab" type="button" role="tab" aria-selected="false" data-mode="text">Text</button>
+            </div>
+            <span class="head-note">LOCAL INPUT</span>
+          </header>
+
+          <div class="source-body">
+            <div class="source-stage">
+              <label class="drop-zone" id="dropZone">
+                <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp">
+                <div class="drop-content" id="dropContent">
+                  <div class="drop-icon">＋</div>
+                  <strong>이미지를 여기에 놓으세요</strong>
+                  <small>PNG · JPG · WEBP · GIF · BMP / 최대 16MB</small>
+                  <small class="privacy-note">이미지는 이 PC의 로컬 서버에서만 분석됩니다</small>
+                </div>
+                <img class="image-preview hidden" id="imagePreview" alt="업로드한 이미지 미리보기">
+                <div class="image-meta hidden" id="imageMeta">
+                  <span id="imageName"></span>
+                  <button id="removeImageButton" type="button">이미지 제거</button>
+                </div>
+              </label>
+
+              <div class="text-pane hidden" id="textPane">
+                <textarea id="textInput" maxlength="20000" placeholder="생성하고 싶은 이미지를 한국어나 영어로 설명하세요.&#10;&#10;예: 검은색의 헝클어진 짧은 머리 남성이 흰 셔츠와 검은 바지를 입고 미소 짓는 상반신 스케치, 극적인 조명"></textarea>
+                <span class="character-count"><b id="characterCount">0</b> / 20,000</span>
+              </div>
+            </div>
+
+            <div class="generation-settings" id="generationSettings">
+              <label>일반 태그 임계값 <output id="generalValue">0.35</output><input id="generalThreshold" type="range" min="0.1" max="0.8" value="0.35" step="0.01"></label>
+              <label>캐릭터 임계값 <output id="characterValue">0.85</output><input id="characterThreshold" type="range" min="0.5" max="0.98" value="0.85" step="0.01"></label>
+            </div>
+
+            <button class="generate-button" id="generateButton" type="button">
+              <span id="generateButtonText">프롬프트 생성</span>
+              <span class="button-arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+        </article>
+
+        <article class="card search-card">
+          <header class="card-head">
+            <span class="eyebrow">Danbooru Tag</span>
+            <span class="head-note" id="tagCountLabel">OFFLINE INDEX</span>
+          </header>
+          <div class="search-body">
+            <form class="search-line" id="searchForm">
+              <input id="tagSearchInput" type="search" placeholder="예: black hair" autocomplete="off" spellcheck="false" aria-label="Danbooru 태그 검색">
+              <button type="submit">검색</button>
+            </form>
+            <div class="search-results" id="searchResults" aria-live="polite"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="column right-column" id="resultPanel" aria-label="프롬프트 결과">
+        <article class="card prompt-card">
+          <header class="card-head">
+            <span class="eyebrow">Prompt Output</span>
+            <span class="head-note">ORDERED · 17 GROUPS</span>
+            <div class="header-actions">
+              <button class="secondary-button" id="clearButton" type="button" disabled>초기화</button>
+            </div>
+          </header>
+          <div class="analysis-strip hidden" id="analysisStrip">
+            <span id="analysisSource"></span>
+            <span id="analysisSummary"></span>
+          </div>
+          <div class="prompt-output" id="promptOutput">
+            <div class="empty-state" id="promptEmpty">
+              <strong>아직 생성된 프롬프트가 없습니다</strong>
+              <p>왼쪽에서 이미지나 설명을 입력한 뒤 「프롬프트 생성」을 누르세요.</p>
+            </div>
+            <div id="promptVariants" class="hidden">
+              <section class="prompt-variant">
+                <header><h2>Stable Diffusion용 프롬프트</h2><button class="copy-button" id="copyButton" type="button" disabled>전체 복사</button></header>
+                <pre class="prompt-code hidden" id="promptGroups" aria-label="Stable Diffusion용 프롬프트"></pre>
+              </section>
+              <section class="prompt-variant">
+                <header><h2>NovelAI용 프롬프트</h2><button class="copy-button" data-copy-output="novelPrompt" type="button" disabled>전체 복사</button></header>
+                <p class="format-hint">V4 이상 · 수치 가중치 1.5::smile::</p>
+                <pre class="prompt-code" id="novelPrompt" aria-label="NovelAI용 프롬프트"></pre>
+              </section>
+              <section class="prompt-variant">
+                <header><h2>자연어 프롬프트</h2><button class="copy-button" data-copy-output="naturalPrompt" type="button" disabled>전체 복사</button></header>
+                <p class="format-hint">현재 태그를 기반으로 만든 영어 문장</p>
+                <pre class="prompt-code natural-code" id="naturalPrompt" aria-label="자연어 프롬프트"></pre>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <article class="card tags-card">
+          <header class="chips-head">
+            <div><b>추출된 태그</b><span id="extractedCount"></span></div>
+            <span class="remove-hint">태그를 누르면 프롬프트에서 제거됩니다</span>
+          </header>
+          <form class="manual-add" id="manualAddForm">
+            <input id="manualTagInput" placeholder="태그 직접 추가" autocomplete="off" spellcheck="false">
+            <input id="manualWeightInput" type="number" min="0.1" max="2" step="0.1" placeholder="가중치">
+            <button type="submit">추가</button>
+          </form>
+          <div class="chips" id="chips">
+            <div class="chips-empty" id="chipsEmpty">생성된 태그가 여기에 표시됩니다.</div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="model-dialog" id="modelDialog">
+    <form method="dialog">
+      <header><div><span class="eyebrow">Local Model</span><h2>이미지 분석 상태</h2></div><button aria-label="닫기">×</button></header>
+      <div class="model-status-grid" id="modelStatusGrid"></div>
+      <p>이미지 분석 모델과 입력 데이터는 이 컴퓨터 안에서만 처리됩니다. 모델이 준비되지 않았다면 앱 폴더의 <code>setup.bat</code>을 실행하세요.</p>
+      <button class="dialog-close">확인</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/prompt-formats.js" defer></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>
